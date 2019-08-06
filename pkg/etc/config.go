@@ -5,10 +5,9 @@ import (
 )
 
 type Config struct {
-	Addr             string
-	RegistryURL      string
-	RegistryUsername string
-	RegistryPassword string
+	Addr            string
+	ScannerUsername string
+	ScannerPassword string
 }
 
 func GetConfig() (*Config, error) {
@@ -18,14 +17,11 @@ func GetConfig() (*Config, error) {
 	if addr, ok := os.LookupEnv("SCANNER_ADDR"); ok {
 		cfg.Addr = addr
 	}
-	if registryURL, ok := os.LookupEnv("SCANNER_REGISTRY_URL"); ok {
-		cfg.RegistryURL = registryURL
+	if username, ok := os.LookupEnv("SCANNER_USERNAME"); ok {
+		cfg.ScannerUsername = username
 	}
-	if username, ok := os.LookupEnv("SCANNER_REGISTRY_USERNAME"); ok {
-		cfg.RegistryUsername = username
-	}
-	if pwd, ok := os.LookupEnv("SCANNER_REGISTRY_PASSWORD"); ok {
-		cfg.RegistryPassword = pwd
+	if pwd, ok := os.LookupEnv("SCANNER_PASSWORD"); ok {
+		cfg.ScannerPassword = pwd
 	}
 	return cfg, nil
 }
