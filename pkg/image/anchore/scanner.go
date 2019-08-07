@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+
 	"github.com/cafeliker/harbor-scanner-anchore/pkg/etc"
 	"github.com/cafeliker/harbor-scanner-anchore/pkg/image"
 	"github.com/cafeliker/harbor-scanner-anchore/pkg/model/anchore"
@@ -18,7 +19,7 @@ type imageScanner struct {
 }
 
 type ScanImagePostRsponse struct {
-	imageDigest  string
+	imageDigest string
 }
 
 // NewScanner constructs new Scanner with the given Config.
@@ -61,30 +62,22 @@ func (s *imageScanner) Scan(req harbor.ScanRequest) (*harbor.ScanResponse, error
 	/*get image brfore post it*/
 
 	request := gorequest.New().SetBasicAuth(s.cfg.ScannerUsername, s.cfg.ScannerPassword)
-	resp, body, errs := request.Get(s.cfg.Addr+"/images").Param(
-		"imageDigest", req.Digest,
-	).End()
-	if errs != nil {
-		log.Printf("Http code: %d", resp.StatusCode)
-		log.Printf("Http body: %d", body)
-	}
 
 	imageToScanReq := &anchore.ScanImagePostReq{
-		P_dockerfile: imageToScan,
-		P_digest:     req.Digest,
-		P_tag:        req.Tag,
+		P_tag: imageToScan,
 	}
 
-	resp, body, errs = request.Post(registryURL + "/iamges").Send(imageToScanReq).End()
-
+	resp, body, errs := request.Post(registryURL + "/iamges").Send(imageToScanReq).End()
+	//TO DO: add error handling code
 	log.Println(body)
 
 	var data []ScanImagePostRsponse
+
 	err = json.NewDecoder(resp.Body).Decode(&data)
 	//update return data later: need return ID which can help to pass to GetResult method
 	log.Println(data)
 	return &harbor.ScanResponse{
-		DetailsKey: scanID.String()
+		DetailsKey: scanID.String(),
 	}, nil
 }
 
@@ -96,10 +89,13 @@ func (s *imageScanner) GetResult(imageDigest string) (*harbor.ScanResult, error)
 	}
 	var data []anchore.ScanResult
 	request := gorequest.New().SetBasicAuth(s.cfg.ScannerUsername, s.cfg.ScannerPassword)
-	resp, body, errs := request.Get(s.cfg.Addr+"/images").Param(
-		"imageDigest", imageDigest,
-	).End()
-	//check ancher return restul structure, update result struct in file model.go
+
+	resp, body, errs := request.Get(s.cfg.Addr + "/images/" + imageDigest).End()
+
+	//TO DO:  add code to check response: if "analysis_status": "analyzed",  show report. if not keep check it in a loop
+
+	resp, body, errs = request.Get(s.cfg.Addr + "/images/" + imageDigest + "/vuln/all").End()
+
 	json.NewDecoder(resp.Body).Decode(&data)
 
 	return s.toHarborScanResult(data)

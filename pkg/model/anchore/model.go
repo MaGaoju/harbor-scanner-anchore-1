@@ -1,5 +1,6 @@
 package anchore
 
+//todo: update this scruct: need update this to match the anchroe API response body
 type ScanResult struct {
 	Target          string          `json:"Target"`
 	Vulnerabilities []Vulnerability `json:"Vulnerabilities"`
@@ -27,6 +28,10 @@ type ScanImagePostReq struct {
 
 type ScanImagePostRsponse struct {
 	resdigest string
+}
+
+//todo: update this scruct: need "check statues"
+type ScanImageStaus struct {
 }
 
 type ScanImagesGegReq struct {
