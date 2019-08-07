@@ -4,19 +4,22 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
+
 	"github.com/cafeliker/harbor-scanner-anchore/pkg/etc"
 	"github.com/cafeliker/harbor-scanner-anchore/pkg/image"
-	"github.com/cafeliker/harbor-scanner-anchore/pkg/model/harbor"
 	"github.com/cafeliker/harbor-scanner-anchore/pkg/model/anchore"
+	"github.com/cafeliker/harbor-scanner-anchore/pkg/model/harbor"
 	"github.com/google/uuid"
-	"log"
-	"os"
-	"os/exec"
-	"path/filepath"
+	"github.com/parnurzeal/gorequest"
 )
 
 type imageScanner struct {
 	cfg *etc.Config
+}
+
+type ScanImagePostRsponse struct {
+	imageDigest string
 }
 
 // NewScanner constructs new Scanner with the given Config.
@@ -42,79 +45,63 @@ func (s *imageScanner) Scan(req harbor.ScanRequest) (*harbor.ScanResponse, error
 	log.Printf("Scan request: %s", scanID.String())
 
 	registryURL := req.RegistryURL
-	if s.cfg.RegistryURL != "" {
-		log.Printf("Overwriting registry URL %s with %s", req.RegistryURL, s.cfg.RegistryURL)
-		registryURL = s.cfg.RegistryURL
+	if s.cfg.Addr != "" {
+		log.Printf("Overwriting registry URL %s with %s", req.RegistryURL, s.cfg.Addr)
+		registryURL = s.cfg.Addr
 	}
 
 	imageToScan := fmt.Sprintf("%s/%s:%s", registryURL, req.Repository, req.Tag)
 
 	log.Printf("Started scanning %s ...", imageToScan)
 
-	executable, err := exec.LookPath("trivy")
+	/*executable, err := exec.LookPath("trivy")
 	if err != nil {
 		return nil, err
+	}*/
+
+	/*get image brfore post it*/
+
+	request := gorequest.New().SetBasicAuth(s.cfg.ScannerUsername, s.cfg.ScannerPassword)
+
+	imageToScanReq := &anchore.ScanImagePostReq{
+		P_tag: imageToScan,
 	}
 
-	cmd := exec.Command(executable,
-		"--debug",
-		"--cache-dir", s.cfg.TrivyCacheDir,
-		"--format", "json",
-		"--output", s.GetScanResultFilePath(scanID),
-		imageToScan,
-	)
+	resp, body, errs := request.Post(registryURL + "/iamges").Send(imageToScanReq).End()
+	//TO DO: add error handling code
+	log.Println(body)
 
-	cmd.Env = os.Environ()
-	if s.cfg.RegistryUsername != "" && s.cfg.RegistryPassword != "" {
-		cmd.Env = append(cmd.Env,
-			fmt.Sprintf("TRIVY_USERNAME=%s", s.cfg.RegistryUsername),
-			fmt.Sprintf("TRIVY_PASSWORD=%s", s.cfg.RegistryPassword))
-	}
+	var data []ScanImagePostRsponse
 
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-
-	err = cmd.Run()
-	if err != nil {
-		return nil, fmt.Errorf("running trivy: %v", err)
-	}
-
-	log.Printf("trivy exit code: %d", cmd.ProcessState.ExitCode())
-	log.Printf("Finished scanning %s", imageToScan)
-
+	err = json.NewDecoder(resp.Body).Decode(&data)
+	//update return data later: need return ID which can help to pass to GetResult method
+	log.Println(data)
 	return &harbor.ScanResponse{
 		DetailsKey: scanID.String(),
 	}, nil
 }
 
-func (s *imageScanner) GetResult(detailsKey string) (*harbor.ScanResult, error) {
-	if detailsKey == "" {
-		return nil, errors.New("detailsKey must not be nil")
-	}
+// update method and paramenter passed in
+func (s *imageScanner) GetResult(imageDigest string) (*harbor.ScanResult, error) {
 
-	scanID, err := uuid.Parse(detailsKey)
-	if err != nil {
-		return nil, err
+	if imageDigest == "" {
+		return nil, errors.New("response body is empty")
 	}
+	var data []anchore.ScanResult
+	request := gorequest.New().SetBasicAuth(s.cfg.ScannerUsername, s.cfg.ScannerPassword)
 
-	file, err := os.Open(s.GetScanResultFilePath(scanID))
-	if err != nil {
-		return nil, fmt.Errorf("opening scan result file: %v", err)
-	}
-	var data []trivy.ScanResult
-	err = json.NewDecoder(file).Decode(&data)
-	if err != nil {
-		return nil, fmt.Errorf("decoding scan result file: %v", err)
-	}
+	resp, body, errs := request.Get(s.cfg.Addr + "/images/" + imageDigest).End()
+
+	//TO DO:  add code to check response: if "analysis_status": "analyzed",  show report. if not keep check it in a loop
+
+	resp, body, errs = request.Get(s.cfg.Addr + "/images/" + imageDigest + "/vuln/all").End()
+
+	json.NewDecoder(resp.Body).Decode(&data)
 
 	return s.toHarborScanResult(data)
 }
 
-func (s *imageScanner) GetScanResultFilePath(scanID uuid.UUID) string {
-	return filepath.Join(s.cfg.ScannerDataDir, scanID.String()+".json")
-}
-
-func (s *imageScanner) toHarborScanResult(srs []trivy.ScanResult) (*harbor.ScanResult, error) {
+func (s *imageScanner) toHarborScanResult(srs []anchore.ScanResult) (*harbor.ScanResult, error) {
 	var vulnerabilities []*harbor.VulnerabilityItem
 
 	for _, sr := range srs {
@@ -149,12 +136,12 @@ func (s *imageScanner) toHarborSeverity(severity string) harbor.Severity {
 	case "UNKNOWN":
 		return harbor.SevUnknown
 	default:
-		log.Printf("Unknown trivy severity %s", severity)
+		log.Printf("Unknown xxxx severity %s", severity)
 		return harbor.SevUnknown
 	}
 }
 
-func (s *imageScanner) toComponentsOverview(srs []trivy.ScanResult) (harbor.Severity, *harbor.ComponentsOverview) {
+func (s *imageScanner) toComponentsOverview(srs []anchore.ScanResult) (harbor.Severity, *harbor.ComponentsOverview) {
 	overallSev := harbor.SevNone
 	total := 0
 	sevToCount := map[harbor.Severity]int{
