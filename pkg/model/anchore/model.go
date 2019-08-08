@@ -25,16 +25,3 @@ type ScanImagePostReq struct {
 	P_image_type  string   `json:"image_type"`
 	P_annotations []string `json:"annotations"`
 }
-
-type ScanImagePostRsponse struct {
-	resdigest string
-}
-
-//todo: update this scruct: need "check statues"
-type ScanImageStaus struct {
-}
-
-type ScanImagesGegReq struct {
-	G_tag    string `json:"tag"`
-	G_digest string `json:"digest"`
-}
