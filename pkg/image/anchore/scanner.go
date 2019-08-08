@@ -18,8 +18,9 @@ type imageScanner struct {
 	cfg *etc.Config
 }
 
-type ScanImagePostRsponse struct {
-	imageDigest string
+type ScanImageStatus struct {
+	imageDigest     string `json:"imageDigest"`
+	analysis_status string `json:"analysis_status"`
 }
 
 // NewScanner constructs new Scanner with the given Config.
@@ -54,28 +55,20 @@ func (s *imageScanner) Scan(req harbor.ScanRequest) (*harbor.ScanResponse, error
 
 	log.Printf("Started scanning %s ...", imageToScan)
 
-	/*executable, err := exec.LookPath("trivy")
-	if err != nil {
-		return nil, err
-	}*/
-
-	/*get image brfore post it*/
-
 	request := gorequest.New().SetBasicAuth(s.cfg.ScannerUsername, s.cfg.ScannerPassword)
 
 	imageToScanReq := &anchore.ScanImagePostReq{
 		P_tag: imageToScan,
 	}
 
-	resp, body, errs := request.Post(registryURL + "/iamges").Send(imageToScanReq).End()
-	//TO DO: add error handling code
-	log.Println(body)
+	resp, _, errs := request.Post(registryURL + "/iamges").Send(imageToScanReq).End(checkStatus)
 
-	var data []ScanImagePostRsponse
+	var data ScanImageStatus
 
 	err = json.NewDecoder(resp.Body).Decode(&data)
 	//update return data later: need return ID which can help to pass to GetResult method
-	log.Println(data)
+	log.Println(data.imageDigest)
+
 	return &harbor.ScanResponse{
 		DetailsKey: scanID.String(),
 	}, nil
@@ -87,17 +80,27 @@ func (s *imageScanner) GetResult(imageDigest string) (*harbor.ScanResult, error)
 	if imageDigest == "" {
 		return nil, errors.New("response body is empty")
 	}
+
 	var data []anchore.ScanResult
+	var tempscandata ScanImageStatus
+
 	request := gorequest.New().SetBasicAuth(s.cfg.ScannerUsername, s.cfg.ScannerPassword)
+	// cal API get the full report until "analysis_status": "analyzed"
+	resp, _, errs := request.Get(s.cfg.Addr + "/images/" + imageDigest).EndStruct(&tempscandata)
 
-	resp, body, errs := request.Get(s.cfg.Addr + "/images/" + imageDigest).End()
+	for tempscandata.analysis_status != "analyzed" {
+		if tempscandata.analysis_status == "analysis_failed" {
+			//to do: define return result once it failed
+			log.Println("analysis_status = analysis_failed")
+			break
 
-	//TO DO:  add code to check response: if "analysis_status": "analyzed",  show report. if not keep check it in a loop
+		} else {
+			resp, _, errs = request.Get(s.cfg.Addr + "/images/" + imageDigest).EndStruct(&tempscandata)
+		}
+	}
 
-	resp, body, errs = request.Get(s.cfg.Addr + "/images/" + imageDigest + "/vuln/all").End()
-
+	resp, _, errs = request.Get(s.cfg.Addr + "/images/" + imageDigest + "/vuln/all").End(checkStatus)
 	json.NewDecoder(resp.Body).Decode(&data)
-
 	return s.toHarborScanResult(data)
 }
 
@@ -174,5 +177,12 @@ func (s *imageScanner) toComponentsOverview(srs []anchore.ScanResult) (harbor.Se
 	return overallSev, &harbor.ComponentsOverview{
 		Total:   total,
 		Summary: summary,
+	}
+}
+
+func checkStatus(resp gorequest.Response, body string, errs []error) {
+	if resp.StatusCode != 200 {
+		log.Println("Http Error code : " + resp.Status)
+
 	}
 }
