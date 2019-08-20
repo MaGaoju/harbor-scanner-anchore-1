@@ -1,19 +1,20 @@
 package anchore
 
-//todo: update this scruct: need update this to match the anchroe API response body
+//update this to match the anchroe API response body
 type ScanResult struct {
-	Target          string          `json:"Target"`
+	ImageDigest          string     `json:"imageDigest"`
 	Vulnerabilities []Vulnerability `json:"Vulnerabilities"`
 }
 
 type Vulnerability struct {
-	VulnerabilityID  string `json:"VulnerabilityID"`
-	PkgName          string `json:"PkgName"`
-	InstalledVersion string `json:"InstalledVersion"`
-	Title            string `json:"Title"`
-	Description      string `json:"Description"`
+	VulnerabilityID  string `json:"vuln"`
+	PkgName          string `json:"package_name"`
+	InstalledVersion string `json:"package_version"`
+	Package_type     string `json:"package_type"`
+	Package          string `json:"package"`
+	URL      		 string `json:"url"`
 	// HIGH / MEDIUM / LOW
-	Severity   string   `json:"Severity"`
+	Severity   string   `json:"severity"`
 	References []string `json:"References"`
 }
 
