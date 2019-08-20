@@ -110,11 +110,11 @@ func (s *imageScanner) toHarborScanResult(srs []anchore.ScanResult) (*harbor.Sca
 	for _, sr := range srs {
 		for _, v := range sr.Vulnerabilities {
 			vulnerabilities = append(vulnerabilities, &harbor.VulnerabilityItem{
-				ID:          v.VulnerabilityID,
-				Severity:    s.toHarborSeverity(v.Severity),
-				Pkg:         v.PkgName,
-				Version:     v.InstalledVersion,
-				Description: v.Description,
+				ID:       v.VulnerabilityID,
+				Severity: s.toHarborSeverity(v.Severity),
+				Pkg:      v.PkgName,
+				Version:  v.InstalledVersion,
+				//Description: v.Package,
 			})
 		}
 	}
