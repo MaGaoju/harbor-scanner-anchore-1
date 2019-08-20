@@ -19,8 +19,8 @@ type imageScanner struct {
 }
 
 type ScanImageStatus struct {
-	imageDigest     string `json:"imageDigest"`
-	analysis_status string `json:"analysis_status"`
+	Target_imageDigest     string `json:"imageDigest"`
+	Target_analysis_status string `json:"analysis_status"`
 }
 
 // NewScanner constructs new Scanner with the given Config.
@@ -61,13 +61,13 @@ func (s *imageScanner) Scan(req harbor.ScanRequest) (*harbor.ScanResponse, error
 		P_tag: imageToScan,
 	}
 
-	resp, _, errs := request.Post(registryURL + "/iamges").Send(imageToScanReq).End(checkStatus)
+	resp, _, _ := request.Post(registryURL + "/iamges").Send(imageToScanReq).End(checkStatus)
 
 	var data ScanImageStatus
 
 	err = json.NewDecoder(resp.Body).Decode(&data)
 	//update return data later: need return ID which can help to pass to GetResult method
-	log.Println(data.imageDigest)
+	log.Println(data.Target_imageDigest)
 
 	return &harbor.ScanResponse{
 		DetailsKey: scanID.String(),
@@ -86,20 +86,20 @@ func (s *imageScanner) GetResult(imageDigest string) (*harbor.ScanResult, error)
 
 	request := gorequest.New().SetBasicAuth(s.cfg.ScannerUsername, s.cfg.ScannerPassword)
 	// cal API get the full report until "analysis_status": "analyzed"
-	resp, _, errs := request.Get(s.cfg.Addr + "/images/" + imageDigest).EndStruct(&tempscandata)
+	resp, _, _ := request.Get(s.cfg.Addr + "/images/" + imageDigest).EndStruct(&tempscandata)
 
-	for tempscandata.analysis_status != "analyzed" {
-		if tempscandata.analysis_status == "analysis_failed" {
+	for tempscandata.Target_analysis_status != "analyzed" {
+		if tempscandata.Target_analysis_status == "analysis_failed" {
 			//to do: define return result once it failed
 			log.Println("analysis_status = analysis_failed")
 			break
 
 		} else {
-			resp, _, errs = request.Get(s.cfg.Addr + "/images/" + imageDigest).EndStruct(&tempscandata)
+			resp, _, _ = request.Get(s.cfg.Addr + "/images/" + imageDigest).EndStruct(&tempscandata)
 		}
 	}
 
-	resp, _, errs = request.Get(s.cfg.Addr + "/images/" + imageDigest + "/vuln/all").End(checkStatus)
+	resp, _, _ = request.Get(s.cfg.Addr + "/images/" + imageDigest + "/vuln/all").End(checkStatus)
 	json.NewDecoder(resp.Body).Decode(&data)
 	return s.toHarborScanResult(data)
 }
