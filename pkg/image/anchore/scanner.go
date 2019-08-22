@@ -58,12 +58,10 @@ func (s *imageScanner) Scan(req harbor.ScanRequest) (*harbor.ScanResponse, error
 	request := gorequest.New().SetBasicAuth(s.cfg.ScannerUsername, s.cfg.ScannerPassword)
 
 	var scannerAPI = s.cfg.ScannerAddress + "/images"
-	log.Printf("anchore-engine add image URL: %s ...", scannerAPI)
+	log.Printf("anchore-engine add image URL: %s", scannerAPI)
 
-	imageToScanReq := &anchore.ScanImagePostReq{
-		P_tag: imageToScan,
-	}
-	log.Printf("anchore-engine add image payload: %s ...", imageToScanReq)
+	var imageToScanReq = `{"tag":"` + imageToScan + `"}`
+	log.Printf("anchore-engine add image payload: %s", imageToScanReq)
 
 	resp, _, _ := request.Post(s.cfg.ScannerAddress + "/images").Send(imageToScanReq).End(checkStatus)
 
