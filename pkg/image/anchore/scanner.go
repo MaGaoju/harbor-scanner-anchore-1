@@ -47,8 +47,8 @@ func (s *imageScanner) Scan(req harbor.ScanRequest) (*harbor.ScanResponse, error
 
 	registryURL := req.RegistryURL
 	if s.cfg.Addr != "" {
-		log.Printf("Overwriting registry URL %s with %s", req.RegistryURL, s.cfg.Addr)
-		registryURL = s.cfg.Addr
+		log.Printf("Overwriting registry URL %s with %s", req.RegistryURL, s.cfg.RegistryAddress)
+		registryURL = s.cfg.RegistryAddress
 	}
 
 	imageToScan := fmt.Sprintf("%s/%s:%s", registryURL, req.Repository, req.Tag)
