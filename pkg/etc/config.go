@@ -6,6 +6,7 @@ import (
 
 type Config struct {
 	Addr            string
+	ScannerAddress  string
 	ScannerUsername string
 	ScannerPassword string
 }
@@ -14,8 +15,8 @@ func GetConfig() (*Config, error) {
 	cfg := &Config{
 		Addr: ":8080",
 	}
-	if addr, ok := os.LookupEnv("SCANNER_ADDR"); ok {
-		cfg.Addr = addr
+	if scannerAddr, ok := os.LookupEnv("SCANNER_ADDR"); ok {
+		cfg.ScannerAddress = scannerAddr
 	}
 	if username, ok := os.LookupEnv("SCANNER_USERNAME"); ok {
 		cfg.ScannerUsername = username
