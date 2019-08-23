@@ -55,21 +55,20 @@ func (s *imageScanner) Scan(req harbor.ScanRequest) (*harbor.ScanResponse, error
 
 	log.Printf("Started scanning %s ...", imageToScan)
 
-	request := gorequest.New().SetBasicAuth(s.cfg.ScannerUsername, s.cfg.ScannerPassword)
-
 	var scannerAPI = s.cfg.ScannerAddress + "/images"
 	log.Printf("anchore-engine add image URL: %s", scannerAPI)
 
 	var imageToScanReq = `{"tag":"` + imageToScan + `"}`
 	log.Printf("anchore-engine add image payload: %s", imageToScanReq)
 
-	resp, _, _ := request.Post(s.cfg.ScannerAddress + "/images").Send(imageToScanReq).End(checkStatus)
+	request := gorequest.New().SetBasicAuth(s.cfg.ScannerUsername, s.cfg.ScannerPassword)
+	resp, _, _ := request.Post(scannerAPI).Send(imageToScanReq).End()
+	log.Println(resp.Status)
 
 	var data ScanImageStatus
-
 	err = json.NewDecoder(resp.Body).Decode(&data)
 	//update return data later: need return ID which can help to pass to GetResult method
-	log.Println(data.Target_imageDigest)
+	log.Println("scan targt (imageDigest): ", data.Target_imageDigest)
 
 	return &harbor.ScanResponse{
 		DetailsKey: scanID.String(),
