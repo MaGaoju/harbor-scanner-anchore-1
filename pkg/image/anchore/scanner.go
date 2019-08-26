@@ -62,7 +62,11 @@ func (s *imageScanner) Scan(req harbor.ScanRequest) (*harbor.ScanResponse, error
 	log.Printf("anchore-engine add image payload: %s", imageToScanReq)
 
 	request := gorequest.New().SetBasicAuth(s.cfg.ScannerUsername, s.cfg.ScannerPassword)
-	resp, _, _ := request.Post(scannerAPI).Send(imageToScanReq).End()
+	resp, _, errs := request.Post(scannerAPI).Send(imageToScanReq).End()
+	if errs != nil {
+		log.Println(errs)
+	}
+
 	log.Println(resp.Status)
 
 	var data ScanImageStatus
@@ -87,7 +91,10 @@ func (s *imageScanner) GetResult(imageDigest string) (*harbor.ScanResult, error)
 
 	request := gorequest.New().SetBasicAuth(s.cfg.ScannerUsername, s.cfg.ScannerPassword)
 	// cal API get the full report until "analysis_status": "analyzed"
-	resp, _, _ := request.Get(s.cfg.ScannerAddress + "/images/" + imageDigest).EndStruct(&tempscandata)
+	resp, _, errs := request.Get(s.cfg.ScannerAddress + "/images/" + imageDigest).EndStruct(&tempscandata)
+	if errs != nil {
+		log.Println(errs)
+	}
 
 	for tempscandata.Target_analysis_status != "analyzed" {
 		if tempscandata.Target_analysis_status == "analysis_failed" {
@@ -96,11 +103,17 @@ func (s *imageScanner) GetResult(imageDigest string) (*harbor.ScanResult, error)
 			break
 
 		} else {
-			resp, _, _ = request.Get(s.cfg.ScannerAddress + "/images/" + imageDigest).EndStruct(&tempscandata)
+			resp, _, errs = request.Get(s.cfg.ScannerAddress + "/images/" + imageDigest).EndStruct(&tempscandata)
+			if errs != nil {
+				log.Println(errs)
+			}
 		}
 	}
 
-	resp, _, _ = request.Get(s.cfg.ScannerAddress + "/images/" + imageDigest + "/vuln/all").End(checkStatus)
+	resp, _, errs = request.Get(s.cfg.ScannerAddress + "/images/" + imageDigest + "/vuln/all").End(checkStatus)
+	if errs != nil {
+		log.Println(errs)
+	}
 	json.NewDecoder(resp.Body).Decode(&data)
 	return s.toHarborScanResult(data)
 }
