@@ -75,7 +75,7 @@ func (s *imageScanner) Scan(req harbor.ScanRequest) (*harbor.ScanResponse, error
 	log.Println("scan targt (imageDigest): ", data.Target_imageDigest)
 
 	return &harbor.ScanResponse{
-		DetailsKey: scanID.String(),
+		DetailsKey: req.Digest,
 	}, nil
 }
 
