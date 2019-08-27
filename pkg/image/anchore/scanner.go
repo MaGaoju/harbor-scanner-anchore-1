@@ -24,6 +24,8 @@ type ScanImageStatus struct {
 	Target_analysis_status string `json:"analysis_status"`
 }
 
+type ScanImages []ScanImageStatus
+
 // NewScanner constructs new Scanner with the given Config.
 func NewScanner(cfg *etc.Config) (image.Scanner, error) {
 	if cfg == nil {
@@ -71,14 +73,14 @@ func (s *imageScanner) Scan(req harbor.ScanRequest) (*harbor.ScanResponse, error
 		log.Println(errs)
 	}
 
-	var data []ScanImageStatus
+	var data ScanImages
 	readErr := json.NewDecoder(resp.Body).Decode(&data)
 
 	if readErr != nil {
 		log.Printf("convert json struc error: " + readErr.Error())
 	}
 	//update return data later: need return ID which can help to pass to GetResult method
-	log.Println("scan targt (imageDigest): ", data)
+	log.Println("scan targt (imageDigest): ", data[0].Target_imageDigest)
 
 	return &harbor.ScanResponse{
 		DetailsKey: req.Digest,
@@ -94,7 +96,7 @@ func (s *imageScanner) GetResult(imageDigest string) (*harbor.ScanResult, error)
 	}
 
 	var data []anchore.ScanResult
-	var tempscandata ScanImageStatus
+	var tempscandata ScanImages
 
 	request := gorequest.New().SetBasicAuth(s.cfg.ScannerUsername, s.cfg.ScannerPassword)
 	// cal API get the full report until "analysis_status": "analyzed"
@@ -110,8 +112,8 @@ func (s *imageScanner) GetResult(imageDigest string) (*harbor.ScanResult, error)
 		log.Printf("convert json struc error: " + readErr.Error())
 	}
 
-	for tempscandata.Target_analysis_status != "analyzed" {
-		if tempscandata.Target_analysis_status == "analysis_failed" {
+	for tempscandata[0].Target_analysis_status != "analyzed" {
+		if tempscandata[0].Target_analysis_status == "analysis_failed" {
 			//to do: define return result once it failed
 			log.Println("analysis_status = analysis_failed")
 			break
@@ -140,6 +142,7 @@ func (s *imageScanner) GetResult(imageDigest string) (*harbor.ScanResult, error)
 		log.Printf("convert json struc error: " + readErr.Error())
 	}
 	return s.toHarborScanResult(data)
+
 }
 
 func (s *imageScanner) toHarborScanResult(srs []anchore.ScanResult) (*harbor.ScanResult, error) {
