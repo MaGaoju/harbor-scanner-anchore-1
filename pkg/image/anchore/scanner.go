@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"time"
 
 	"github.com/cafeliker/harbor-scanner-anchore/pkg/etc"
 	"github.com/cafeliker/harbor-scanner-anchore/pkg/image"
@@ -62,15 +63,20 @@ func (s *imageScanner) Scan(req harbor.ScanRequest) (*harbor.ScanResponse, error
 	log.Printf("anchore-engine add image payload: %s", imageToScanReq)
 
 	request := gorequest.New().SetBasicAuth(s.cfg.ScannerUsername, s.cfg.ScannerPassword)
-	resp, _, errs := request.Post(scannerAPI).Send(imageToScanReq).End()
+	resp, body, errs := request.Post(scannerAPI).Send(imageToScanReq).End()
+	log.Println(resp.Status)
+	log.Println(body)
+
 	if errs != nil {
 		log.Println(errs)
 	}
 
-	log.Println(resp.Status)
-
 	var data ScanImageStatus
-	err = json.NewDecoder(resp.Body).Decode(&data)
+	readErr := json.NewDecoder(resp.Body).Decode(&data)
+
+	if readErr != nil {
+		log.Printf("convert json struc error: " + readErr.Error())
+	}
 	//update return data later: need return ID which can help to pass to GetResult method
 	log.Println("scan targt (imageDigest): ", data.Target_imageDigest)
 
@@ -82,8 +88,9 @@ func (s *imageScanner) Scan(req harbor.ScanRequest) (*harbor.ScanResponse, error
 // update method and paramenter passed in
 func (s *imageScanner) GetResult(imageDigest string) (*harbor.ScanResult, error) {
 
+	log.Println("scan targt (imageDigest): ", imageDigest)
 	if imageDigest == "" {
-		return nil, errors.New("response body is empty")
+		return nil, errors.New("imageDigest is empty")
 	}
 
 	var data []anchore.ScanResult
@@ -91,9 +98,16 @@ func (s *imageScanner) GetResult(imageDigest string) (*harbor.ScanResult, error)
 
 	request := gorequest.New().SetBasicAuth(s.cfg.ScannerUsername, s.cfg.ScannerPassword)
 	// cal API get the full report until "analysis_status": "analyzed"
-	resp, _, errs := request.Get(s.cfg.ScannerAddress + "/images/" + imageDigest).EndStruct(&tempscandata)
+	resp, body, errs := request.Get(s.cfg.ScannerAddress + "/images/" + imageDigest).End()
+	log.Println(resp.Status)
+	log.Println(body)
 	if errs != nil {
 		log.Println(errs)
+	}
+	readErr := json.NewDecoder(resp.Body).Decode(&tempscandata)
+
+	if readErr != nil {
+		log.Printf("convert json struc error: " + readErr.Error())
 	}
 
 	for tempscandata.Target_analysis_status != "analyzed" {
@@ -103,18 +117,28 @@ func (s *imageScanner) GetResult(imageDigest string) (*harbor.ScanResult, error)
 			break
 
 		} else {
-			resp, _, errs = request.Get(s.cfg.ScannerAddress + "/images/" + imageDigest).EndStruct(&tempscandata)
+			time.Sleep(10 * time.Second)
+			resp, _, errs = request.Get(s.cfg.ScannerAddress + "/images/" + imageDigest).End()
+			readErr := json.NewDecoder(resp.Body).Decode(&tempscandata)
+			if readErr != nil {
+				log.Printf("convert json struc error: " + readErr.Error())
+			}
 			if errs != nil {
 				log.Println(errs)
 			}
 		}
 	}
 
-	resp, _, errs = request.Get(s.cfg.ScannerAddress + "/images/" + imageDigest + "/vuln/all").End(checkStatus)
+	resp, body, errs = request.Get(s.cfg.ScannerAddress + "/images/" + imageDigest + "/vuln/all").End()
+	log.Println(resp.Status)
+	log.Println(body)
 	if errs != nil {
 		log.Println(errs)
 	}
-	json.NewDecoder(resp.Body).Decode(&data)
+	readErr = json.NewDecoder(resp.Body).Decode(&data)
+	if readErr != nil {
+		log.Printf("convert json struc error: " + readErr.Error())
+	}
 	return s.toHarborScanResult(data)
 }
 
