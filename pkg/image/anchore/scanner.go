@@ -71,14 +71,14 @@ func (s *imageScanner) Scan(req harbor.ScanRequest) (*harbor.ScanResponse, error
 		log.Println(errs)
 	}
 
-	var data ScanImageStatus
+	var data []ScanImageStatus
 	readErr := json.NewDecoder(resp.Body).Decode(&data)
 
 	if readErr != nil {
 		log.Printf("convert json struc error: " + readErr.Error())
 	}
 	//update return data later: need return ID which can help to pass to GetResult method
-	log.Println("scan targt (imageDigest): ", data.Target_imageDigest)
+	log.Println("scan targt (imageDigest): ", data)
 
 	return &harbor.ScanResponse{
 		DetailsKey: req.Digest,
