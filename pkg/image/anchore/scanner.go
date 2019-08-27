@@ -26,8 +26,6 @@ type ScanImageStatus struct {
 
 type ScanImages []ScanImageStatus
 
-type ScanResultGroup []anchore.ScanResult
-
 // NewScanner constructs new Scanner with the given Config.
 func NewScanner(cfg *etc.Config) (image.Scanner, error) {
 	if cfg == nil {
@@ -92,7 +90,7 @@ func (s *imageScanner) GetResult(imageDigest string) (*harbor.ScanResult, error)
 		return nil, errors.New("imageDigest is empty")
 	}
 
-	var ScanResultdata ScanResultGroup
+	var ScanResultdata anchore.ScanResult
 	var tempscandata ScanImages
 
 	request := gorequest.New().SetBasicAuth(s.cfg.ScannerUsername, s.cfg.ScannerPassword)
@@ -130,25 +128,23 @@ func (s *imageScanner) GetResult(imageDigest string) (*harbor.ScanResult, error)
 		log.Printf("convert scanresult to json error: " + readErr.Error())
 	}
 
-	log.Println("Debug: first scan result: ", ScanResultdata[0].Vulnerabilities[0])
+	log.Println("Debug: first scan result: ", ScanResultdata.Vulnerabilities[0])
 
 	return s.toHarborScanResult(ScanResultdata)
 
 }
 
-func (s *imageScanner) toHarborScanResult(srs []anchore.ScanResult) (*harbor.ScanResult, error) {
+func (s *imageScanner) toHarborScanResult(srs anchore.ScanResult) (*harbor.ScanResult, error) {
 	var vulnerabilities []*harbor.VulnerabilityItem
 
-	for _, sr := range srs {
-		for _, v := range sr.Vulnerabilities {
-			vulnerabilities = append(vulnerabilities, &harbor.VulnerabilityItem{
-				ID:       v.VulnerabilityID,
-				Severity: s.toHarborSeverity(v.Severity),
-				Pkg:      v.PkgName,
-				Version:  v.InstalledVersion,
-				//Description: v.Package,
-			})
-		}
+	for _, v := range srs.Vulnerabilities {
+		vulnerabilities = append(vulnerabilities, &harbor.VulnerabilityItem{
+			ID:       v.VulnerabilityID,
+			Severity: s.toHarborSeverity(v.Severity),
+			Pkg:      v.PkgName,
+			Version:  v.InstalledVersion,
+			//Description: v.Package,
+		})
 	}
 
 	severity, overview := s.toComponentsOverview(srs)
@@ -176,7 +172,7 @@ func (s *imageScanner) toHarborSeverity(severity string) harbor.Severity {
 	}
 }
 
-func (s *imageScanner) toComponentsOverview(srs []anchore.ScanResult) (harbor.Severity, *harbor.ComponentsOverview) {
+func (s *imageScanner) toComponentsOverview(srs anchore.ScanResult) (harbor.Severity, *harbor.ComponentsOverview) {
 	overallSev := harbor.SevNone
 	total := 0
 	sevToCount := map[harbor.Severity]int{
@@ -187,14 +183,12 @@ func (s *imageScanner) toComponentsOverview(srs []anchore.ScanResult) (harbor.Se
 		harbor.SevNone:    0,
 	}
 
-	for _, sr := range srs {
-		for _, vln := range sr.Vulnerabilities {
-			sev := s.toHarborSeverity(vln.Severity)
-			sevToCount[sev]++
-			total++
-			if sev > overallSev {
-				overallSev = sev
-			}
+	for _, vln := range srs.Vulnerabilities {
+		sev := s.toHarborSeverity(vln.Severity)
+		sevToCount[sev]++
+		total++
+		if sev > overallSev {
+			overallSev = sev
 		}
 	}
 
@@ -215,6 +209,7 @@ func (s *imageScanner) toComponentsOverview(srs []anchore.ScanResult) (harbor.Se
 func checkStatus(resp gorequest.Response, body string, errs []error) {
 	if resp.StatusCode != 200 {
 		log.Println("Http Error code : " + resp.Status)
+		log.Println("Http response Error message : " + body)
 
 	}
 }
