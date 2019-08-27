@@ -2,7 +2,7 @@ package anchore
 
 //update this to match the anchroe API response body
 type ScanResult struct {
-	ImageDigest          string     `json:"imageDigest"`
+	ImageDigest     string          `json:"imageDigest"`
 	Vulnerabilities []Vulnerability `json:"Vulnerabilities"`
 }
 
@@ -12,10 +12,9 @@ type Vulnerability struct {
 	InstalledVersion string `json:"package_version"`
 	Package_type     string `json:"package_type"`
 	Package          string `json:"package"`
-	URL      		 string `json:"url"`
+	URL              string `json:"url"`
 	// HIGH / MEDIUM / LOW
-	Severity   string   `json:"severity"`
-	References []string `json:"References"`
+	Severity string `json:"severity"`
 }
 
 type ScanImagePostReq struct {

@@ -67,10 +67,10 @@ func (s *imageScanner) Scan(req harbor.ScanRequest) (*harbor.ScanResponse, error
 	request := gorequest.New().SetBasicAuth(s.cfg.ScannerUsername, s.cfg.ScannerPassword)
 	resp, body, errs := request.Post(scannerAPI).Send(imageToScanReq).End()
 	log.Println(resp.Status)
-	log.Println(body)
 
 	if errs != nil {
 		log.Println(errs)
+		log.Println(body)
 	}
 
 	var data ScanImages
@@ -102,7 +102,6 @@ func (s *imageScanner) GetResult(imageDigest string) (*harbor.ScanResult, error)
 	// cal API get the full report until "analysis_status": "analyzed"
 	resp, body, errs := request.Get(s.cfg.ScannerAddress + "/images/" + imageDigest).End()
 	log.Println(resp.Status)
-	log.Println(body)
 	if errs != nil {
 		log.Println(errs)
 	}
@@ -171,11 +170,11 @@ func (s *imageScanner) toHarborScanResult(srs []anchore.ScanResult) (*harbor.Sca
 
 func (s *imageScanner) toHarborSeverity(severity string) harbor.Severity {
 	switch severity {
-	case "HIGH", "CRITICAL":
+	case "High", "CRITICAL":
 		return harbor.SevHigh
-	case "MEDIUM":
+	case "Medium":
 		return harbor.SevMedium
-	case "LOW":
+	case "Low":
 		return harbor.SevLow
 	case "UNKNOWN":
 		return harbor.SevUnknown
