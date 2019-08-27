@@ -88,7 +88,7 @@ func (s *imageScanner) GetResult(imageDigest string) (*harbor.ScanResult, error)
 	var tempscandata ScanImages
 
 	request := gorequest.New().SetBasicAuth(s.cfg.ScannerUsername, s.cfg.ScannerPassword)
-	// cal API get the full report until "analysis_status": "analyzed"
+	// call API get the full report until "analysis_status" = "analyzed"
 	resp, _, errs := request.Get(s.cfg.ScannerAddress + "/images/" + imageDigest).EndStruct(&tempscandata)
 	checkStatusStruc(resp, errs)
 
@@ -122,6 +122,7 @@ func (s *imageScanner) toHarborScanResult(srs anchore.ScanResult) (*harbor.ScanR
 			Severity: s.toHarborSeverity(v.Severity),
 			Pkg:      v.PkgName,
 			Version:  v.InstalledVersion,
+			Link:     v.URL,
 			//Description: v.Package,
 		})
 	}
@@ -146,7 +147,7 @@ func (s *imageScanner) toHarborSeverity(severity string) harbor.Severity {
 	case "UNKNOWN":
 		return harbor.SevUnknown
 	case "Negligible":
-		return harbor.SevNegligible
+		return harbor.SevNone
 	default:
 		log.Printf("Unknown xxxx severity %s", severity)
 		return harbor.SevUnknown
@@ -157,12 +158,11 @@ func (s *imageScanner) toComponentsOverview(srs anchore.ScanResult) (harbor.Seve
 	overallSev := harbor.SevNone
 	total := 0
 	sevToCount := map[harbor.Severity]int{
-		harbor.SevHigh:       0,
-		harbor.SevMedium:     0,
-		harbor.SevLow:        0,
-		harbor.SevUnknown:    0,
-		harbor.SevNone:       0,
-		harbor.SevNegligible: 0,
+		harbor.SevHigh:    0,
+		harbor.SevMedium:  0,
+		harbor.SevLow:     0,
+		harbor.SevUnknown: 0,
+		harbor.SevNone:    0,
 	}
 
 	for _, vln := range srs.Vulnerabilities {

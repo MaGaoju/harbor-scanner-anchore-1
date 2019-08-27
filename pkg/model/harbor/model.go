@@ -9,7 +9,6 @@ const (
 	SevLow
 	SevMedium
 	SevHigh
-	SevNegligible
 )
 
 type ScanRequest struct {
