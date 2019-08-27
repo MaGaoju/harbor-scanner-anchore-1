@@ -166,6 +166,8 @@ func (s *imageScanner) toHarborSeverity(severity string) harbor.Severity {
 		return harbor.SevLow
 	case "UNKNOWN":
 		return harbor.SevUnknown
+	case "Negligible":
+		return harbor.SevNegligible
 	default:
 		log.Printf("Unknown xxxx severity %s", severity)
 		return harbor.SevUnknown
@@ -176,11 +178,12 @@ func (s *imageScanner) toComponentsOverview(srs anchore.ScanResult) (harbor.Seve
 	overallSev := harbor.SevNone
 	total := 0
 	sevToCount := map[harbor.Severity]int{
-		harbor.SevHigh:    0,
-		harbor.SevMedium:  0,
-		harbor.SevLow:     0,
-		harbor.SevUnknown: 0,
-		harbor.SevNone:    0,
+		harbor.SevHigh:       0,
+		harbor.SevMedium:     0,
+		harbor.SevLow:        0,
+		harbor.SevUnknown:    0,
+		harbor.SevNone:       0,
+		harbor.SevNegligible: 0,
 	}
 
 	for _, vln := range srs.Vulnerabilities {
