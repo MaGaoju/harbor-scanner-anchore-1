@@ -26,6 +26,8 @@ type ScanImageStatus struct {
 
 type ScanImages []ScanImageStatus
 
+type ScanResultGroup []anchore.ScanResult
+
 // NewScanner constructs new Scanner with the given Config.
 func NewScanner(cfg *etc.Config) (image.Scanner, error) {
 	if cfg == nil {
@@ -95,7 +97,7 @@ func (s *imageScanner) GetResult(imageDigest string) (*harbor.ScanResult, error)
 		return nil, errors.New("imageDigest is empty")
 	}
 
-	var data []anchore.ScanResult
+	var ScanResultdata ScanResultGroup
 	var tempscandata ScanImages
 
 	request := gorequest.New().SetBasicAuth(s.cfg.ScannerUsername, s.cfg.ScannerPassword)
@@ -132,15 +134,19 @@ func (s *imageScanner) GetResult(imageDigest string) (*harbor.ScanResult, error)
 
 	resp, body, errs = request.Get(s.cfg.ScannerAddress + "/images/" + imageDigest + "/vuln/all").End()
 	log.Println(resp.Status)
-	log.Println(body)
 	if errs != nil {
 		log.Println(errs)
+		log.Println(body)
 	}
-	readErr = json.NewDecoder(resp.Body).Decode(&data)
+	readErr = json.NewDecoder(resp.Body).Decode(&ScanResultdata)
+
 	if readErr != nil {
-		log.Printf("convert json struc error: " + readErr.Error())
+		log.Printf("convert scanresult to json error: " + readErr.Error())
 	}
-	return s.toHarborScanResult(data)
+
+	log.Println("scan targt (imageDigest): ", ScanResultdata[0].Vulnerabilities)
+
+	return s.toHarborScanResult(ScanResultdata)
 
 }
 
