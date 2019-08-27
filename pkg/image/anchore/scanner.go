@@ -68,12 +68,7 @@ func (s *imageScanner) Scan(req harbor.ScanRequest) (*harbor.ScanResponse, error
 
 	request := gorequest.New().SetBasicAuth(s.cfg.ScannerUsername, s.cfg.ScannerPassword)
 	resp, body, errs := request.Post(scannerAPI).Send(imageToScanReq).End()
-	log.Println(resp.Status)
-
-	if errs != nil {
-		log.Println(errs)
-		log.Println(body)
-	}
+	checkStatus(resp, body, errs)
 
 	var data ScanImages
 	readErr := json.NewDecoder(resp.Body).Decode(&data)
@@ -103,14 +98,11 @@ func (s *imageScanner) GetResult(imageDigest string) (*harbor.ScanResult, error)
 	request := gorequest.New().SetBasicAuth(s.cfg.ScannerUsername, s.cfg.ScannerPassword)
 	// cal API get the full report until "analysis_status": "analyzed"
 	resp, body, errs := request.Get(s.cfg.ScannerAddress + "/images/" + imageDigest).End()
-	log.Println(resp.Status)
-	if errs != nil {
-		log.Println(errs)
-	}
+	checkStatus(resp, body, errs)
 	readErr := json.NewDecoder(resp.Body).Decode(&tempscandata)
 
 	if readErr != nil {
-		log.Printf("convert json struc error: " + readErr.Error())
+		log.Printf("convert json struc error before loop: " + readErr.Error())
 	}
 
 	for tempscandata[0].Target_analysis_status != "analyzed" {
@@ -121,30 +113,24 @@ func (s *imageScanner) GetResult(imageDigest string) (*harbor.ScanResult, error)
 
 		} else {
 			time.Sleep(10 * time.Second)
-			resp, _, errs = request.Get(s.cfg.ScannerAddress + "/images/" + imageDigest).End()
+			resp, body, errs = request.Get(s.cfg.ScannerAddress + "/images/" + imageDigest).End()
+			checkStatus(resp, body, errs)
 			readErr := json.NewDecoder(resp.Body).Decode(&tempscandata)
 			if readErr != nil {
-				log.Printf("convert json struc error: " + readErr.Error())
-			}
-			if errs != nil {
-				log.Println(errs)
+				log.Printf("convert json struc error in loop: " + readErr.Error())
 			}
 		}
 	}
 
 	resp, body, errs = request.Get(s.cfg.ScannerAddress + "/images/" + imageDigest + "/vuln/all").End()
-	log.Println(resp.Status)
-	if errs != nil {
-		log.Println(errs)
-		log.Println(body)
-	}
+	checkStatus(resp, body, errs)
 	readErr = json.NewDecoder(resp.Body).Decode(&ScanResultdata)
 
 	if readErr != nil {
 		log.Printf("convert scanresult to json error: " + readErr.Error())
 	}
 
-	log.Println("scan targt (imageDigest): ", ScanResultdata[0].Vulnerabilities)
+	log.Println("Debug: first scan result: ", ScanResultdata[0].Vulnerabilities[0])
 
 	return s.toHarborScanResult(ScanResultdata)
 
