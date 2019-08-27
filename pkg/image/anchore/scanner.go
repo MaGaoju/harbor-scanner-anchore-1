@@ -1,7 +1,6 @@
 package anchore
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
@@ -63,22 +62,17 @@ func (s *imageScanner) Scan(req harbor.ScanRequest) (*harbor.ScanResponse, error
 
 	var imageToScanReq = `{"tag":"` + imageToScan + `"}`
 	log.Printf("anchore-engine add image payload: %s", imageToScanReq)
+	var data ScanImages
 
 	request := gorequest.New().SetBasicAuth(s.cfg.ScannerUsername, s.cfg.ScannerPassword)
-	resp, body, errs := request.Post(scannerAPI).Send(imageToScanReq).End()
-	checkStatus(resp, body, errs)
+	resp, _, errs := request.Post(scannerAPI).Send(imageToScanReq).EndStruct(&data)
+	checkStatusStruc(resp, errs)
 
-	var data ScanImages
-	readErr := json.NewDecoder(resp.Body).Decode(&data)
-
-	if readErr != nil {
-		log.Printf("convert json struc error: " + readErr.Error())
-	}
-	//update return data later: need return ID which can help to pass to GetResult method
 	log.Println("scan targt (imageDigest): ", data[0].Target_imageDigest)
 
 	return &harbor.ScanResponse{
-		DetailsKey: req.Digest,
+		//update return data: return imageDigest which pass to GetResult method
+		DetailsKey: data[0].Target_imageDigest,
 	}, nil
 }
 
@@ -95,13 +89,8 @@ func (s *imageScanner) GetResult(imageDigest string) (*harbor.ScanResult, error)
 
 	request := gorequest.New().SetBasicAuth(s.cfg.ScannerUsername, s.cfg.ScannerPassword)
 	// cal API get the full report until "analysis_status": "analyzed"
-	resp, body, errs := request.Get(s.cfg.ScannerAddress + "/images/" + imageDigest).End()
-	checkStatus(resp, body, errs)
-	readErr := json.NewDecoder(resp.Body).Decode(&tempscandata)
-
-	if readErr != nil {
-		log.Printf("convert json struc error before loop: " + readErr.Error())
-	}
+	resp, _, errs := request.Get(s.cfg.ScannerAddress + "/images/" + imageDigest).EndStruct(&tempscandata)
+	checkStatusStruc(resp, errs)
 
 	for tempscandata[0].Target_analysis_status != "analyzed" {
 		if tempscandata[0].Target_analysis_status == "analysis_failed" {
@@ -111,25 +100,15 @@ func (s *imageScanner) GetResult(imageDigest string) (*harbor.ScanResult, error)
 
 		} else {
 			time.Sleep(10 * time.Second)
-			resp, body, errs = request.Get(s.cfg.ScannerAddress + "/images/" + imageDigest).End()
-			checkStatus(resp, body, errs)
-			readErr := json.NewDecoder(resp.Body).Decode(&tempscandata)
-			if readErr != nil {
-				log.Printf("convert json struc error in loop: " + readErr.Error())
-			}
+			resp, _, errs = request.Get(s.cfg.ScannerAddress + "/images/" + imageDigest).EndStruct(&tempscandata)
+			checkStatusStruc(resp, errs)
 		}
 	}
 
-	resp, body, errs = request.Get(s.cfg.ScannerAddress + "/images/" + imageDigest + "/vuln/all").End()
-	checkStatus(resp, body, errs)
-	readErr = json.NewDecoder(resp.Body).Decode(&ScanResultdata)
+	resp, _, errs = request.Get(s.cfg.ScannerAddress + "/images/" + imageDigest + "/vuln/all").EndStruct(&ScanResultdata)
+	checkStatusStruc(resp, errs)
 
-	if readErr != nil {
-		log.Printf("convert scanresult to json error: " + readErr.Error())
-	}
-
-	log.Println("Debug: first scan result: ", ScanResultdata.Vulnerabilities[0])
-
+	//log.Println("Debug: first scan result: ", ScanResultdata.Vulnerabilities[0])
 	return s.toHarborScanResult(ScanResultdata)
 
 }
@@ -209,10 +188,10 @@ func (s *imageScanner) toComponentsOverview(srs anchore.ScanResult) (harbor.Seve
 	}
 }
 
-func checkStatus(resp gorequest.Response, body string, errs []error) {
-	if resp.StatusCode != 200 {
+func checkStatusStruc(resp gorequest.Response, errs []error) {
+	if errs != nil {
 		log.Println("Http Error code : " + resp.Status)
-		log.Println("Http response Error message : " + body)
-
+		log.Println("Error message : ")
+		log.Println(errs)
 	}
 }
