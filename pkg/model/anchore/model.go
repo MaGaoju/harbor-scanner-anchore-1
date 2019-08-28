@@ -13,15 +13,7 @@ type Vulnerability struct {
 	Package_type     string `json:"package_type"`
 	Package          string `json:"package"`
 	URL              string `json:"url"`
+	Fix              string `json:"fix"`
 	// HIGH / MEDIUM / LOW
 	Severity string `json:"severity"`
-}
-
-type ScanImagePostReq struct {
-	P_dockerfile  string   `json:"dockerfile"`
-	P_digest      string   `json:"digest"`
-	P_tag         string   `json:"tag"`
-	P_created_at  string   `json:"created_at"`
-	P_image_type  string   `json:"image_type"`
-	P_annotations []string `json:"annotations"`
 }

@@ -123,6 +123,8 @@ func (s *imageScanner) toHarborScanResult(srs anchore.ScanResult) (*harbor.ScanR
 			Pkg:      v.PkgName,
 			Version:  v.InstalledVersion,
 			Link:     v.URL,
+			//Set fixed in version field
+			Fixed: v.Fix,
 			//Description: v.Package,
 		})
 	}
